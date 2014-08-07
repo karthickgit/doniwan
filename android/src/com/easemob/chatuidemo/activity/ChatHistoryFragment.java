@@ -14,6 +14,7 @@
 package com.easemob.chatuidemo.activity;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -22,8 +23,13 @@ import java.util.Map;
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.PowerManager;
 import android.support.v4.app.Fragment;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -43,6 +49,7 @@ import android.widget.AdapterView.AdapterContextMenuInfo;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -56,12 +63,19 @@ import com.easemob.chat.EMGroup;
 import com.easemob.chat.EMGroupManager;
 import com.easemob.chat.EMMessage;
 import com.easemob.chat.ImageMessageBody;
+import com.easemob.chat.VoiceMessageBody;
 import com.easemob.chatuidemo.DemoApplication;
 import com.easemob.chatuidemo.R;
 import com.easemob.chatuidemo.adapter.ChatHistoryAdapter;
+import com.easemob.chatuidemo.adapter.VoicePlayClickListener;
 import com.easemob.chatuidemo.db.InviteMessgeDao;
 import com.easemob.chatuidemo.domain.User;
+import com.easemob.chatuidemo.image.FileImageDecoder;
+import com.easemob.chatuidemo.image.ImageDecoder.ImageScaleType;
+import com.easemob.chatuidemo.image.ImageSize;
+import com.easemob.chatuidemo.utils.CommonUtils;
 import com.easemob.chatuidemo.utils.ImageUtils;
+import com.easemob.util.VoiceRecorder;
 
 /**
  * 聊天记录Fragment
@@ -79,6 +93,17 @@ public class ChatHistoryFragment extends Fragment {
 	public TextView errorText;
 	private boolean hidden;
 	private TextView unread_msg_number;
+	private ImageView face;
+	private VoiceRecorder voiceRecorder;
+	private View buttonPressToSpeak;
+	
+	private PowerManager.WakeLock wakeLock;
+	View recordingContainer;
+	ImageView micImage;
+	private Drawable[] micImages;
+	TextView recordingHint;
+	
+	String image = "/storage/emulated/legacy/Pictures/ps.png";
 
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -100,6 +125,39 @@ public class ChatHistoryFragment extends Fragment {
 			@Override
 			public void onClick(View arg0) {
 				openFace();
+			}
+		});
+		face = (ImageView)getView().findViewById(R.id.face);
+		recordingContainer = getView().findViewById(R.id.recording_container);
+		micImage = (ImageView) getView().findViewById(R.id.mic_image);
+		// 动画资源文件,用于录制语音时
+		micImages = new Drawable[] { getResources().getDrawable(R.drawable.record_animate_01),
+				getResources().getDrawable(R.drawable.record_animate_02), getResources().getDrawable(R.drawable.record_animate_03),
+				getResources().getDrawable(R.drawable.record_animate_04), getResources().getDrawable(R.drawable.record_animate_05),
+				getResources().getDrawable(R.drawable.record_animate_06), getResources().getDrawable(R.drawable.record_animate_07),
+				getResources().getDrawable(R.drawable.record_animate_08), getResources().getDrawable(R.drawable.record_animate_09),
+				getResources().getDrawable(R.drawable.record_animate_10), getResources().getDrawable(R.drawable.record_animate_11),
+				getResources().getDrawable(R.drawable.record_animate_12), getResources().getDrawable(R.drawable.record_animate_13),
+				getResources().getDrawable(R.drawable.record_animate_14), };
+				
+		recordingHint = (TextView) getView().findViewById(R.id.recording_hint);
+		buttonPressToSpeak = getView().findViewById(R.id.btn_press_to_speak);
+		buttonPressToSpeak.setOnTouchListener(new PressToSpeakListen());
+		wakeLock = ((PowerManager) getActivity().getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK, "demo");
+		
+		FileImageDecoder decoder = new FileImageDecoder(new File(image));
+		Bitmap bitmap;
+		try {
+			bitmap = decoder.decode(new ImageSize(300, 300), ImageScaleType.POWER_OF_2);
+			face.setImageBitmap(bitmap);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		voiceRecorder = new VoiceRecorder(new Handler() {
+			@Override
+			public void handleMessage(android.os.Message msg) {
+				micImage.setImageDrawable(micImages[msg.what]);
 			}
 		});
 		
@@ -126,7 +184,6 @@ public class ChatHistoryFragment extends Fragment {
 //					startActivity(intent);
 					
 					//TODOHAND 发送消息
-					String image = "/storage/emulated/0/Pictures/Screenshots/Screenshot_2014-08-05-10-32-43.png";
 					String username = emContact.getUsername();
 					sendFace(image, username);
 					
@@ -204,6 +261,115 @@ public class ChatHistoryFragment extends Fragment {
 			return true;
 		}
 		return super.onContextItemSelected(item);
+	}
+	
+	/**
+	 * 按住说话listener
+	 * 
+	 */
+	class PressToSpeakListen implements View.OnTouchListener {
+		EMContact user = loadUsersWithRecentChat().get(0);
+		String toChatUsername =  user.getUsername();
+		@Override
+		public boolean onTouch(View v, MotionEvent event) {
+			switch (event.getAction()) {
+			case MotionEvent.ACTION_DOWN:
+				if (!CommonUtils.isExitsSdcard()) {
+					Toast.makeText(getActivity(), "发送语音需要sdcard支持！", Toast.LENGTH_SHORT).show();
+					return false;
+				}
+				try {
+					v.setPressed(true);
+					wakeLock.acquire();
+					if (VoicePlayClickListener.isPlaying)
+						VoicePlayClickListener.currentPlayListener.stopPlayVoice();
+					recordingContainer.setVisibility(View.VISIBLE);
+					recordingHint.setText(getString(R.string.move_up_to_cancel));
+					recordingHint.setBackgroundColor(Color.TRANSPARENT);
+					voiceRecorder.startRecording(null, toChatUsername, getActivity().getApplicationContext());
+				} catch (Exception e) {
+					e.printStackTrace();
+					v.setPressed(false);
+					if (wakeLock.isHeld())
+						wakeLock.release();
+					recordingContainer.setVisibility(View.INVISIBLE);
+					Toast.makeText(getActivity(), R.string.recoding_fail, Toast.LENGTH_SHORT).show();
+					return false;
+				}
+
+				return true;
+			case MotionEvent.ACTION_MOVE: {
+				if (event.getY() < 0) {
+					recordingHint.setText(getString(R.string.release_to_cancel));
+					recordingHint.setBackgroundResource(R.drawable.recording_text_hint_bg);
+				} else {
+					recordingHint.setText(getString(R.string.move_up_to_cancel));
+					recordingHint.setBackgroundColor(Color.TRANSPARENT);
+				}
+				return true;
+			}
+			case MotionEvent.ACTION_UP:
+				v.setPressed(false);
+				recordingContainer.setVisibility(View.INVISIBLE);
+				if (wakeLock.isHeld())
+					wakeLock.release();
+				if (event.getY() < 0) {
+					// discard the recorded audio.
+					voiceRecorder.discardRecording();
+				} else {
+					// stop recording and send voice file
+					try {
+						int length = voiceRecorder.stopRecoding();
+						if (length > 0) {
+							sendVoice(toChatUsername, voiceRecorder.getVoiceFilePath(), voiceRecorder.getVoiceFileName(toChatUsername), Integer.toString(length), false);
+						} else {
+							Toast.makeText(getActivity(), "录音时间太短", 0).show();
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+						Toast.makeText(getActivity(), "发送失败，请检测服务器是否连接", Toast.LENGTH_SHORT).show();
+					}
+
+				}
+				return true;
+			default:
+				return false;
+			}
+		}
+	}
+	
+	/**
+	 * TODOHAND 发送语音
+	 */
+	private void sendVoice(String to, String filePath, String fileName, String length, boolean isResend) {
+		if (!(new File(filePath).exists())) {
+			return;
+		}
+		try {
+			final EMMessage message = EMMessage.createSendMessage(EMMessage.Type.VOICE);
+			message.setReceipt(to);
+			int len = Integer.parseInt(length);
+			VoiceMessageBody body = new VoiceMessageBody(new File(filePath), len);
+			message.addBody(body);
+
+			EMConversation conversation = EMChatManager.getInstance().getConversation(to);
+			conversation.addMessage(message);
+			EMChatManager.getInstance().sendMessage(message, new EMCallBack() {
+				@Override
+				public void onSuccess() {
+				}
+				
+				@Override
+				public void onProgress(int arg0, String arg1) {
+				}
+				
+				@Override
+				public void onError(int arg0, String arg1) {
+				}
+			});
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 	
 	/**

@@ -241,6 +241,8 @@ public class ChatActivity extends BaseActivity implements OnClickListener {
 		expressionViewpager.setAdapter(new ExpressionPagerAdapter(views));
 
 		voiceRecorder = new VoiceRecorder(micImageHandler);
+		
+		
 		buttonPressToSpeak.setOnTouchListener(new PressToSpeakListen());
 
 		// 监听文字框
