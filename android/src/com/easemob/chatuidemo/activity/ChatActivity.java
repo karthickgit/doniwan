@@ -66,6 +66,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.baidu.location.i;
+import com.easemob.EMCallBack;
 import com.easemob.chat.EMChatManager;
 import com.easemob.chat.EMConversation;
 import com.easemob.chat.EMGroup;
@@ -732,6 +733,29 @@ public class ChatActivity extends BaseActivity implements OnClickListener {
 			String to = toChatUsername;
 			message.setReceipt(to);
 			VideoMessageBody body = new VideoMessageBody(videoFile, thumbPath, length, videoFile.length());
+			
+			
+			body.setDownloadCallback(new EMCallBack() {
+				
+				@Override
+				public void onSuccess() {
+					// TODO Auto-generated method stub
+					
+				}
+				
+				@Override
+				public void onProgress(int arg0, String arg1) {
+					// TODO Auto-generated method stub
+					
+				}
+				
+				@Override
+				public void onError(int arg0, String arg1) {
+					// TODO Auto-generated method stub
+					
+				}
+			});
+			
 			message.addBody(body);
 			conversation.addMessage(message);
 			listView.setAdapter(adapter);

@@ -14,6 +14,9 @@
 
 package com.easemob.chatuidemo.activity;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import com.easemob.chat.EMChatManager;
 
 import android.app.Activity;
@@ -25,4 +28,20 @@ public class BaseActivity extends Activity{
 		//onresume时，取消notification显示
 		EMChatManager.getInstance().activityResumed();
 	}
+	
+	
+	private static Map<String, Object> mValues = new LinkedHashMap<String, Object>();//用于传递数据，static变量，记得一定要清理哦！！
+    public static void putValus(String key, Object values){
+    	mValues.put(key, values);
+    }
+    
+    public static Object pokeValus(String key){
+    	return getValus(key, true);
+    }
+    
+    private static Object getValus(String key, boolean isNeedDelete){
+    	Object values = mValues.get(key);
+    	if(isNeedDelete)mValues.remove(key);
+    	return values;
+    }
 }

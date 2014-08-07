@@ -29,10 +29,13 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 
 import com.easemob.chat.EMChatConfig;
+import com.easemob.chat.EMMessage;
 import com.easemob.chatuidemo.R;
+import com.easemob.chatuidemo.adapter.VoicePlayClickListener;
 import com.easemob.chatuidemo.task.LoadLocalBigImgTask;
 import com.easemob.chatuidemo.utils.ImageCache;
 import com.easemob.chatuidemo.widget.photoview.PhotoView;
@@ -58,6 +61,10 @@ public class ShowBigImage extends BaseActivity {
 	private Bitmap bitmap;
 	private boolean isDownloaded;
 	private ProgressBar loadLocalPb;
+	
+	private ImageView iv_read_status;
+	private ImageView iv_voice;
+	private EMMessage voiceMessage;
 
 	@SuppressLint("NewApi")
 	@Override
@@ -67,11 +74,18 @@ public class ShowBigImage extends BaseActivity {
 
 		image = (PhotoView) findViewById(R.id.image);
 		loadLocalPb = (ProgressBar) findViewById(R.id.pb_load_local);
-
+		
 		default_res = getIntent().getIntExtra("default_image", R.drawable.default_avatar);
 		showAvator = getIntent().getBooleanExtra("showAvator", false);
 		username = getIntent().getStringExtra("username");
 		deleteAfterDownload = getIntent().getBooleanExtra("delete", false);
+		
+		iv_voice = (ImageView) findViewById(R.id.iv_voice);
+		iv_read_status = (ImageView) findViewById(R.id.iv_read_status);
+		voiceMessage = (EMMessage)pokeValus("voice");
+		if((voiceMessage != null) & com.easemob.chat.EMMessage.Type.VOICE.equals(voiceMessage.getType())){
+			iv_voice.setOnClickListener(new VoicePlayClickListener(voiceMessage, iv_voice, iv_read_status, null, this, username));
+		}
 		
 		Uri uri = getIntent().getParcelableExtra("uri");
 		String remotepath = getIntent().getExtras().getString("remotepath");

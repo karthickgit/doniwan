@@ -433,6 +433,7 @@ public class ChatHistoryFragment extends Fragment {
 			String username = user.getUsername();
 			EMConversation conversation = EMChatManager.getInstance().getConversation(username);
 			EMMessage message = conversation.getMessage(conversation.getMsgCount() -1);
+			EMMessage voiceMessage = conversation.getMessage(conversation.getMsgCount() -2);
 			
 			if(!com.easemob.chat.EMMessage.Type.IMAGE.equals(message.getType())) return;
 			
@@ -454,6 +455,7 @@ public class ChatHistoryFragment extends Fragment {
 					intent.putExtra("remotepath", remoteDir);
 				}
 				
+				ShowBigImage.putValus("voice", voiceMessage);
 				startActivity(intent);
 			}
 		}

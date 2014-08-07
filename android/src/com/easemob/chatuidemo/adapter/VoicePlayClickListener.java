@@ -207,7 +207,7 @@ public class VoicePlayClickListener implements View.OnClickListener {
 					@Override
 					protected void onPostExecute(Void result) {
 						super.onPostExecute(result);
-						adapter.notifyDataSetChanged();
+						if(adapter != null) adapter.notifyDataSetChanged();
 					}
 					
 				}.execute();

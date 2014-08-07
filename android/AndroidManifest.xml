@@ -128,6 +128,7 @@
         </activity>
         <!-- 显示下载大图页面 -->
         <activity
+            android:screenOrientation="portrait"
             android:name=".activity.ShowBigImage"
             android:theme="@style/horizontal_slide" >
         </activity>
