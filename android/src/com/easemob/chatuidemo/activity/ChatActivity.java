@@ -608,7 +608,7 @@ public class ChatActivity extends BaseActivity implements OnClickListener {
 	}
 
 	/**
-	 * 发送文本消息
+	 * TODOHAND 发送文本消息
 	 * 
 	 * @param content
 	 *            message content
@@ -654,7 +654,7 @@ public class ChatActivity extends BaseActivity implements OnClickListener {
 	}
 
 	/**
-	 * 发送语音
+	 * TODOHAND 发送语音
 	 * 
 	 * @param filePath
 	 * @param fileName
@@ -688,7 +688,7 @@ public class ChatActivity extends BaseActivity implements OnClickListener {
 	}
 
 	/**
-	 * 发送图片
+	 * TODOHAND 发送图片
 	 * 
 	 * @param filePath
 	 */
@@ -715,7 +715,7 @@ public class ChatActivity extends BaseActivity implements OnClickListener {
 	}
 
 	/**
-	 * 发送视频消息
+	 * TODOHAND 发送视频消息
 	 */
 	private void sendVideo(final String filePath, final String thumbPath, final int length) {
 		final File videoFile = new File(filePath);
@@ -763,6 +763,7 @@ public class ChatActivity extends BaseActivity implements OnClickListener {
 				toast.show();
 				return;
 			}
+			System.out.println(String.format(" picturePath %s ", picturePath));
 			sendPicture(picturePath);
 		} else {
 			File file = new File(selectedImage.getPath());

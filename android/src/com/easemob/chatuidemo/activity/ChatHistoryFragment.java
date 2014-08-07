@@ -13,6 +13,7 @@
  */
 package com.easemob.chatuidemo.activity;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -21,6 +22,7 @@ import java.util.Map;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.text.Editable;
@@ -46,18 +48,20 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.easemob.EMCallBack;
 import com.easemob.chat.EMChatManager;
 import com.easemob.chat.EMContact;
 import com.easemob.chat.EMConversation;
 import com.easemob.chat.EMGroup;
 import com.easemob.chat.EMGroupManager;
 import com.easemob.chat.EMMessage;
-import com.easemob.chat.GroupChangeListener;
+import com.easemob.chat.ImageMessageBody;
 import com.easemob.chatuidemo.DemoApplication;
 import com.easemob.chatuidemo.R;
 import com.easemob.chatuidemo.adapter.ChatHistoryAdapter;
 import com.easemob.chatuidemo.db.InviteMessgeDao;
 import com.easemob.chatuidemo.domain.User;
+import com.easemob.chatuidemo.utils.ImageUtils;
 
 /**
  * 聊天记录Fragment
@@ -74,6 +78,7 @@ public class ChatHistoryFragment extends Fragment {
 	public RelativeLayout errorItem;
 	public TextView errorText;
 	private boolean hidden;
+	private TextView unread_msg_number;
 
 	@Override
 	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -90,6 +95,14 @@ public class ChatHistoryFragment extends Fragment {
 		contactList = DemoApplication.getInstance().getContactList();
 		listView = (ListView) getView().findViewById(R.id.list);
 		adapter = new ChatHistoryAdapter(getActivity(), 1, loadUsersWithRecentChat());
+		unread_msg_number = (TextView)getView().findViewById(R.id.unread_msg_number);
+		unread_msg_number.setOnClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View arg0) {
+				openFace();
+			}
+		});
+		
 		// 设置adapter
 		listView.setAdapter(adapter);
 		listView.setOnItemClickListener(new OnItemClickListener() {
@@ -100,17 +113,23 @@ public class ChatHistoryFragment extends Fragment {
 				if (adapter.getItem(position).getUsername().equals(DemoApplication.getInstance().getUserName()))
 					Toast.makeText(getActivity(), "不能和自己聊天", 0).show();
 				else {
-					// 进入聊天页面
-					  Intent intent = new Intent(getActivity(), ChatActivity.class);
-					 if (emContact instanceof EMGroup) {
-		                    //it is group chat
-		                    intent.putExtra("chatType", ChatActivity.CHATTYPE_GROUP);
-		                    intent.putExtra("groupId", ((EMGroup) emContact).getGroupId());
-		                } else {
-		                    //it is single chat
-		                    intent.putExtra("userId", emContact.getUsername());
-		                } 
-					startActivity(intent);
+//					// 进入聊天页面
+//					  Intent intent = new Intent(getActivity(), ChatActivity.class);
+//					 if (emContact instanceof EMGroup) {
+//		                    //it is group chat
+//		                    intent.putExtra("chatType", ChatActivity.CHATTYPE_GROUP);
+//		                    intent.putExtra("groupId", ((EMGroup) emContact).getGroupId());
+//		                } else {
+//		                    //it is single chat
+//		                    intent.putExtra("userId", emContact.getUsername());
+//		                } 
+//					startActivity(intent);
+					
+					//TODOHAND 发送消息
+					String image = "/storage/emulated/0/Pictures/Screenshots/Screenshot_2014-08-05-10-32-43.png";
+					String username = emContact.getUsername();
+					sendFace(image, username);
+					
 				}
 			}
 		});
@@ -136,7 +155,6 @@ public class ChatHistoryFragment extends Fragment {
 		clearSearch = (ImageButton) getView().findViewById(R.id.search_clear);
 		query.addTextChangedListener(new TextWatcher() {
 			public void onTextChanged(CharSequence s, int start, int before, int count) {
-				
 				adapter.getFilter().filter(s);
 				if (s.length() > 0) {
 					clearSearch.setVisibility(View.VISIBLE);
@@ -187,6 +205,93 @@ public class ChatHistoryFragment extends Fragment {
 		}
 		return super.onContextItemSelected(item);
 	}
+	
+	/**
+	 * 接收到消息后回调
+	 */
+	private void onReveicedMessages(){
+		List<EMContact> chats = loadUsersWithRecentChat();
+		int total = 0;
+		for(EMContact user : chats){
+			String username = user.getUsername();
+			EMConversation conversation = EMChatManager.getInstance().getConversation(username);
+			int count = conversation.getUnreadMsgCount();
+			total += count;
+		}
+		System.out.println(String.format(" total: %s ", total));
+		
+		if(total > 0){
+			unread_msg_number.setVisibility(View.VISIBLE);
+			unread_msg_number.setText("" + total);
+		}else{
+			unread_msg_number.setVisibility(View.GONE);
+		}
+	}
+	
+	/**
+	 * 发送表情
+	 */
+	private void sendFace(final String filePath, String toChatUsername) {
+		String to = toChatUsername;
+		// create and add image message in view
+		final EMMessage message = EMMessage.createSendMessage(EMMessage.Type.IMAGE);
+		message.setReceipt(to);
+		ImageMessageBody body = new ImageMessageBody(new File(filePath));
+		// 默认超过100k的图片会压缩后发给对方，可以设置成发送原图
+		// body.setSendOriginalImage(true);
+		message.addBody(body);
+		
+		EMConversation conversation = EMChatManager.getInstance().getConversation(toChatUsername);
+		conversation.addMessage(message);
+		EMChatManager.getInstance().sendMessage(message, new EMCallBack() {
+			@Override
+			public void onSuccess() {
+			}
+			
+			@Override
+			public void onProgress(int arg0, String arg1) {
+			}
+			
+			@Override
+			public void onError(int arg0, String arg1) {
+			}
+		});
+	}
+	
+	/**
+	 * 打开表情
+	 */
+	public void openFace(){
+		EMContact user = loadUsersWithRecentChat().get(0);
+		if(user != null){
+			String username = user.getUsername();
+			EMConversation conversation = EMChatManager.getInstance().getConversation(username);
+			EMMessage message = conversation.getMessage(conversation.getMsgCount() -1);
+			
+			if(!com.easemob.chat.EMMessage.Type.IMAGE.equals(message.getType())) return;
+			
+			ImageMessageBody imgBody = (ImageMessageBody) message.getBody();
+			if (imgBody.getLocalUrl() != null) {
+				String filePath = imgBody.getLocalUrl();
+
+				String thumbnailPath = ImageUtils.getThumbnailImagePath(filePath);
+				Intent intent = new Intent(getActivity(), ShowBigImage.class);
+				File file = new File(thumbnailPath);
+				if (file.exists()) {
+					Uri uri = Uri.fromFile(file);
+					intent.putExtra("uri", uri);
+					System.err.println("here need to check why download everytime");
+				} else {
+					String remoteDir = imgBody.getRemoteUrl();
+					ImageMessageBody body = (ImageMessageBody) message.getBody();
+					intent.putExtra("secret", body.getSecret());
+					intent.putExtra("remotepath", remoteDir);
+				}
+				
+				startActivity(intent);
+			}
+		}
+	}
 
 	/**
 	 * 刷新页面
@@ -195,6 +300,7 @@ public class ChatHistoryFragment extends Fragment {
 		adapter = new ChatHistoryAdapter(getActivity(), R.layout.row_chat_history, loadUsersWithRecentChat());
 		listView.setAdapter(adapter);
 		adapter.notifyDataSetChanged();
+		onReveicedMessages();
 	}
 
 	/**
